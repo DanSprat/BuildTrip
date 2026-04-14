@@ -7,6 +7,8 @@ import '../models/trip.dart';
 import '../theme/build_trip_form_theme.dart';
 import '../widgets/build_trip_app_bar.dart';
 import '../widgets/build_trip_ui_cards.dart';
+import '../utils/clipboard_utils.dart';
+import '../utils/open_in_maps.dart';
 import '../widgets/itinerary_widgets.dart';
 
 class PlaceDetailsScreen extends StatefulWidget {
@@ -264,7 +266,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                             title: 'Заметки',
                             child: TextFormField(
                               controller: _notesController,
-                              minLines: 3,
+                              minLines: 1,
                               maxLines: 8,
                               decoration: const InputDecoration(
                                 labelText: 'Текст заметок',
@@ -488,45 +490,117 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     });
   }
 
-  Widget _buildLinkEditRow(int index) {
-    final scheme = Theme.of(context).colorScheme;
-    final link = _customLinks[index];
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Material(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(10),
+  /// Карточка ссылки в просмотре: устойчиво при длинных заголовках и при списке из нескольких штук.
+  Widget _buildReadOnlyLinkCard(
+    ColorScheme scheme,
+    TextTheme t,
+    PlaceLink link,
+  ) {
+    return Material(
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: 0.55),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _openLinkInBrowser(link.url),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(2, 2, 2, 2),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(8, 2, 2, 2),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        link.title,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        link.url,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.primary,
-                              height: 1.25,
-                              fontSize: 12,
-                            ),
-                      ),
-                    ],
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: scheme.primary.withValues(alpha: 0.1),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.3),
                   ),
+                ),
+                child: Icon(
+                  Icons.language_rounded,
+                  size: 22,
+                  color: scheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  link.title,
+                  style: t.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    height: 1.28,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.open_in_new_rounded,
+                size: 20,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.9),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkEditRow(int index) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    final link = _customLinks[index];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(11),
+                  color: scheme.primary.withValues(alpha: 0.1),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.28),
+                  ),
+                ),
+                child: Icon(
+                  Icons.language_rounded,
+                  size: 20,
+                  color: scheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  link.title,
+                  style: t.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    height: 1.25,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               IconButton(
@@ -643,47 +717,13 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                 message: 'Ссылок пока нет',
               )
             : Column(
-                children: _customLinks
-                    .map(
-                      (l) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Material(
-                          color: scheme.primary.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(14),
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            onTap: () => _openLinkInBrowser(l.url),
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l.title,
-                                    style: t.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  SelectableText(
-                                    l.url,
-                                    style: t.bodySmall?.copyWith(
-                                      color: scheme.primary,
-                                      height: 1.35,
-                                      decoration: TextDecoration.underline,
-                                      decorationColor:
-                                          scheme.primary.withValues(alpha: 0.45),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < _customLinks.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 8),
+                    _buildReadOnlyLinkCard(scheme, t, _customLinks[i]),
+                  ],
+                ],
               ),
       ),
     ];
@@ -753,42 +793,65 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      name.isEmpty ? 'Без названия' : name,
-                      style: t.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                        height: 1.12,
-                        fontSize: (t.headlineSmall?.fontSize ?? 24) * 0.92,
-                        color: name.isEmpty
-                            ? scheme.onSurfaceVariant
-                            : scheme.onSurface,
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: name.isEmpty
+                            ? null
+                            : () => copyToClipboard(context, name),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(
+                            name.isEmpty ? 'Без названия' : name,
+                            style: t.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
+                              height: 1.12,
+                              fontSize:
+                                  (t.headlineSmall?.fontSize ?? 24) * 0.92,
+                              color: name.isEmpty
+                                  ? scheme.onSurfaceVariant
+                                  : scheme.onSurface,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     if (addr.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Icon(
-                              Icons.place_outlined,
-                              size: 17,
-                              color: scheme.onSurfaceVariant,
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => copyToClipboard(context, addr),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Icon(
+                                    Icons.place_outlined,
+                                    size: 17,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    addr,
+                                    style: t.bodyMedium?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              addr,
-                              style: t.bodyMedium?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                height: 1.4,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ],
@@ -851,25 +914,11 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                   ),
                 ),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        a.label,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        a.path,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
+                  child: Text(
+                    a.label,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (editing) ...[
@@ -914,16 +963,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   }
 
   Future<void> _openAddressInMaps(String address) async {
-    final encoded = Uri.encodeComponent(address);
-    final mapUri =
-        Uri.parse('https://www.google.com/maps/search/?api=1&query=$encoded');
-    if (!await launchUrl(mapUri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось открыть карты')),
-        );
-      }
-    }
+    await showOpenInMapsSheet(context, query: address);
   }
 
   /// Открыть ссылку в браузере; если схемы нет — подставляем https.

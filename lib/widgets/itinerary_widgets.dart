@@ -91,6 +91,13 @@ class TransportVisual {
       TransportMode.train => 'Поезд',
     };
   }
+
+  /// Порядок в селекторах типа транспорта.
+  static const List<TransportMode> pickerOrder = [
+    TransportMode.plane,
+    TransportMode.car,
+    TransportMode.train,
+  ];
 }
 
 class TravelRoadStrip extends StatelessWidget {

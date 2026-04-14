@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 
 import '../models/trip.dart';
+import '../utils/clipboard_utils.dart';
 import '../theme/build_trip_form_theme.dart';
 import '../widgets/build_trip_app_bar.dart';
 import '../widgets/build_trip_ui_cards.dart';
@@ -114,101 +115,117 @@ class _TravelSegmentDetailsScreenState
             ? Theme(
                 data: Theme.of(context)
                     .copyWith(inputDecorationTheme: formInputs),
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-                  children: [
-                    BuildTripSectionCard(
-                      icon: Icons.route_rounded,
-                      title: 'Как едем',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'Тип транспорта',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                          const SizedBox(height: 8),
-                          SegmentedButton<TransportMode>(
-                            segments: const [
-                              ButtonSegment<TransportMode>(
-                                value: TransportMode.plane,
-                                icon: Icon(Icons.flight_outlined, size: 20),
-                                label: Text('Самолёт'),
+                child: LayoutBuilder(
+                  builder: (context, lc) {
+                    final innerW = lc.maxWidth - 32;
+                    return ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                      children: [
+                        BuildTripSectionCard(
+                          icon: Icons.route_rounded,
+                          title: 'Как едем',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Theme(
+                                data: Theme.of(context).copyWith(
+                                  inputDecorationTheme:
+                                      BuildTripFormTheme.dropdownFilledTheme(
+                                    scheme,
+                                  ),
+                                ),
+                                child: DropdownMenu<TransportMode>(
+                                  key: ValueKey(_mode),
+                                  width: innerW,
+                                  initialSelection: _mode,
+                                  label: const Text('Тип транспорта'),
+                                  leadingIcon: Icon(
+                                    TransportVisual.of(context, _mode).icon,
+                                    color:
+                                        TransportVisual.of(context, _mode).accent,
+                                  ),
+                                  menuStyle: MenuStyle(
+                                    shape: WidgetStatePropertyAll(
+                                      RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                  onSelected: (TransportMode? v) {
+                                    if (v != null) {
+                                      setState(() => _mode = v);
+                                    }
+                                  },
+                                  dropdownMenuEntries: [
+                                    for (final m in TransportVisual.pickerOrder)
+                                      DropdownMenuEntry<TransportMode>(
+                                        value: m,
+                                        label: TransportVisual.label(m),
+                                        leadingIcon: Icon(
+                                          TransportVisual.of(context, m).icon,
+                                          size: 22,
+                                          color: TransportVisual.of(context, m)
+                                              .accent,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
-                              ButtonSegment<TransportMode>(
-                                value: TransportMode.car,
-                                icon: Icon(Icons.directions_car_outlined,
-                                    size: 20),
-                                label: Text('Авто'),
+                              const SizedBox(height: 18),
+                              TextFormField(
+                                controller: _noteController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Кратко в маршруте',
+                                  hintText: 'Например, RER B ~25 мин',
+                                ),
+                                textCapitalization: TextCapitalization.sentences,
                               ),
-                              ButtonSegment<TransportMode>(
-                                value: TransportMode.train,
-                                icon: Icon(Icons.train_outlined, size: 20),
-                                label: Text('Поезд'),
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _descriptionController,
+                                minLines: 1,
+                                maxLines: 8,
+                                decoration: const InputDecoration(
+                                  labelText: 'Подробное описание',
+                                  hintText: 'Необязательно',
+                                  alignLabelWithHint: true,
+                                ),
+                                textCapitalization: TextCapitalization.sentences,
                               ),
                             ],
-                            selected: {_mode},
-                            onSelectionChanged: (s) => setState(() {
-                              _mode = s.first;
-                            }),
-                            showSelectedIcon: false,
                           ),
-                          const SizedBox(height: 18),
-                          TextFormField(
-                            controller: _noteController,
-                            decoration: const InputDecoration(
-                              labelText: 'Кратко в маршруте',
-                              hintText: 'Например, RER B ~25 мин',
-                            ),
-                            textCapitalization: TextCapitalization.sentences,
+                        ),
+                        BuildTripSectionCard(
+                          marginBottom: 0,
+                          icon: Icons.attach_file_rounded,
+                          title: 'Файлы',
+                          titleTrailing: IconButton(
+                            tooltip: 'Добавить файлы',
+                            style: BuildTripAppBar.toolbarIconStyle(scheme),
+                            onPressed: _pickFiles,
+                            icon: const Icon(Icons.upload_file_rounded),
                           ),
-                          const SizedBox(height: 14),
-                          TextFormField(
-                            controller: _descriptionController,
-                            minLines: 3,
-                            maxLines: 8,
-                            decoration: const InputDecoration(
-                              labelText: 'Подробное описание',
-                              hintText: 'Необязательно',
-                              alignLabelWithHint: true,
-                            ),
-                            textCapitalization: TextCapitalization.sentences,
-                          ),
-                        ],
-                      ),
-                    ),
-                    BuildTripSectionCard(
-                      marginBottom: 0,
-                      icon: Icons.attach_file_rounded,
-                      title: 'Файлы',
-                      titleTrailing: IconButton(
-                        tooltip: 'Добавить файлы',
-                        style: BuildTripAppBar.toolbarIconStyle(scheme),
-                        onPressed: _pickFiles,
-                        icon: const Icon(Icons.upload_file_rounded),
-                      ),
-                      child: _attachments.isEmpty
-                          ? const BuildTripEmptyHint(
-                              icon: Icons.folder_open_rounded,
-                              message:
-                                  'Пока нет файлов — нажмите иконку загрузки справа',
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: _attachments
-                                  .map(
-                                    (a) => _buildAttachmentRow(
-                                      a,
-                                      editing: true,
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                    ),
-                  ],
+                          child: _attachments.isEmpty
+                              ? const BuildTripEmptyHint(
+                                  icon: Icons.folder_open_rounded,
+                                  message:
+                                      'Пока нет файлов — нажмите иконку загрузки справа',
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: _attachments
+                                      .map(
+                                        (a) => _buildAttachmentRow(
+                                          a,
+                                          editing: true,
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               )
             : ListView(
@@ -347,32 +364,59 @@ class _TravelSegmentDetailsScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: transport.accent.withValues(alpha: 0.12),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => copyToClipboard(
+                        context,
+                        TransportVisual.label(_mode),
+                      ),
                       borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      TransportVisual.label(_mode),
-                      style: t.labelMedium?.copyWith(
-                        color: transport.accent,
-                        fontWeight: FontWeight.w700,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: transport.accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          TransportVisual.label(_mode),
+                          style: t.labelMedium?.copyWith(
+                            color: transport.accent,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    note.isEmpty ? 'Краткая строка в маршруте не задана' : note,
-                    style:
-                        (note.isEmpty ? t.bodyMedium : t.titleMedium)?.copyWith(
-                      fontWeight:
-                          note.isEmpty ? FontWeight.w400 : FontWeight.w700,
-                      height: 1.35,
-                      color: note.isEmpty ? scheme.onSurfaceVariant : null,
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: note.isEmpty
+                          ? null
+                          : () => copyToClipboard(context, note),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(
+                          note.isEmpty
+                              ? 'Краткая строка в маршруте не задана'
+                              : note,
+                          style: (note.isEmpty ? t.bodyMedium : t.titleMedium)
+                              ?.copyWith(
+                            fontWeight: note.isEmpty
+                                ? FontWeight.w400
+                                : FontWeight.w700,
+                            height: 1.35,
+                            color: note.isEmpty
+                                ? scheme.onSurfaceVariant
+                                : null,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -431,25 +475,11 @@ class _TravelSegmentDetailsScreenState
             ),
           ),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  a.label,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  a.path,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
+            child: Text(
+              a.label,
+              style: Theme.of(context).textTheme.bodyMedium,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (editing) ...[

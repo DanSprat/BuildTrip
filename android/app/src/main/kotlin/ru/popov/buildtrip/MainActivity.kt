@@ -1,4 +1,4 @@
-package com.example.build_trip
+package ru.popov.buildtrip
 
 import io.flutter.embedding.android.FlutterActivity
 

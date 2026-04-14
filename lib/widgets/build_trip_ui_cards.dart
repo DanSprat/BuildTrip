@@ -25,6 +25,7 @@ class BuildTripSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: EdgeInsets.only(bottom: marginBottom),
       child: Container(
@@ -34,11 +35,15 @@ class BuildTripSectionCard extends StatelessWidget {
           color: scheme.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.45),
+            color: scheme.outlineVariant.withValues(
+              alpha: isDark ? 0.62 : 0.45,
+            ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: isDark
+                  ? scheme.onSurface.withValues(alpha: 0.14)
+                  : Colors.black.withValues(alpha: 0.03),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -91,26 +96,37 @@ class BuildTripEmptyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hintBg = isDark
+        ? scheme.surfaceContainerHighest.withValues(alpha: 0.58)
+        : scheme.surfaceContainerHighest.withValues(alpha: 0.4);
+    final hintBorder = scheme.outlineVariant.withValues(
+      alpha: isDark ? 0.55 : 0.4,
+    );
+    final iconColor = isDark
+        ? Color.lerp(scheme.primary, scheme.onSurfaceVariant, 0.42)!
+        : scheme.outline;
+    final textColor = isDark
+        ? Color.lerp(scheme.onSurfaceVariant, scheme.onSurface, 0.22)!
+        : scheme.onSurfaceVariant;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        color: hintBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: hintBorder),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 22, color: scheme.outline),
+          Icon(icon, size: 22, color: iconColor),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
+                    color: textColor,
                     height: 1.35,
                   ),
             ),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../data/mock_data.dart';
 import '../data/trips_persistence.dart';
 import '../models/trip.dart';
+import '../utils/open_in_maps.dart';
 import '../utils/trip_partition.dart';
 import '../widgets/build_trip_app_bar.dart';
 import 'trip_details_screen.dart';
@@ -668,16 +668,7 @@ class _AddTripSheetState extends State<_AddTripSheet> {
   }
 
   Future<void> _openDestinationInMaps(String query) async {
-    final encoded = Uri.encodeComponent(query);
-    final mapUri =
-        Uri.parse('https://www.google.com/maps/search/?api=1&query=$encoded');
-    if (!await launchUrl(mapUri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось открыть карты')),
-        );
-      }
-    }
+    await showOpenInMapsSheet(context, query: query);
   }
 
   Future<void> _pickStartDate() async {
