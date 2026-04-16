@@ -17,6 +17,7 @@ dependencies:
   map_launcher: ^4.5.0
   android_intent_plus: ^6.0.0
   geocoding: ^4.0.0
+  flutter_svg: ^2.2.4
 
 dev_dependencies:
   flutter_test:

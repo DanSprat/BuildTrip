@@ -23,6 +23,7 @@ class DayDetailsScreen extends StatefulWidget {
 class _DayDetailsScreenState extends State<DayDetailsScreen> {
   late final List<TripDay> _days;
   late int _selectedDayIndex;
+  final GlobalKey _routeListBoundaryKey = GlobalKey();
 
   TripDay get _selectedDay => _days[_selectedDayIndex];
 
@@ -41,8 +42,7 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
     if (_days.isEmpty) {
       _selectedDayIndex = 0;
     } else {
-      _selectedDayIndex =
-          widget.initialDayIndex.clamp(0, _days.length - 1);
+      _selectedDayIndex = widget.initialDayIndex.clamp(0, _days.length - 1);
     }
   }
 
@@ -126,99 +126,111 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
               _RouteSectionHeading(scheme: Theme.of(context).colorScheme),
               const SizedBox(height: 10),
               Expanded(
-                child: items.isEmpty
-                    ? Center(
-                        child: Tooltip(
-                          message: 'Добавить в маршрут',
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _showAddItinerarySheet,
-                              borderRadius: BorderRadius.circular(32),
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Icon(
-                                  Icons.add_road,
-                                  size: 40,
-                                  color: Theme.of(context).colorScheme.outline,
+                child: Container(
+                  key: _routeListBoundaryKey,
+                  child: items.isEmpty
+                      ? Center(
+                          child: Tooltip(
+                            message: 'Добавить в маршрут',
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _showAddItinerarySheet,
+                                borderRadius: BorderRadius.circular(32),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Icon(
+                                    Icons.add_road,
+                                    size: 40,
+                                    color:
+                                        Theme.of(context).colorScheme.outline,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      )
-                    : ReorderableListView.builder(
-                        itemCount: items.length,
-                        onReorder: _onReorderItems,
-                        buildDefaultDragHandles: false,
-                        proxyDecorator: (child, index, animation) {
-                          final curved = CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOutCubic,
-                            reverseCurve: Curves.easeInCubic,
-                          );
-                          return AnimatedBuilder(
-                            animation: curved,
-                            builder: (context, _) {
-                              final t = curved.value;
-                              final scheme = Theme.of(context).colorScheme;
-                              // Слабый «подъём»: почти без увеличения и с низкой тенью
-                              return Transform.scale(
-                                scale: 1.0 + 0.008 * t,
-                                alignment: Alignment.center,
-                                child: Material(
-                                  elevation: 1.5 + 2.5 * t,
-                                  shadowColor:
-                                      scheme.shadow.withValues(alpha: 0.22 * t),
-                                  borderRadius: BorderRadius.circular(16),
-                                  clipBehavior: Clip.antiAlias,
-                                  color: Colors.transparent,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: scheme.primary
-                                            .withValues(alpha: 0.35 + 0.2 * t),
-                                        width: 1.2 + 0.25 * t,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: scheme.primary
-                                              .withValues(alpha: 0.06 * t),
-                                          blurRadius: 6 * t,
-                                          spreadRadius: 0,
-                                          offset: Offset(0, 1 * t),
+                        )
+                      : ReorderableListView.builder(
+                          itemCount: items.length,
+                          onReorder: _onReorderItems,
+                          buildDefaultDragHandles: false,
+                          dragBoundaryProvider: (context) {
+                            final boundaryContext =
+                                _routeListBoundaryKey.currentContext;
+                            if (boundaryContext != null) {
+                              return DragBoundary.forRectOf(boundaryContext);
+                            }
+                            return DragBoundary.forRectOf(context);
+                          },
+                          proxyDecorator: (child, index, animation) {
+                            final curved = CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                              reverseCurve: Curves.easeInCubic,
+                            );
+                            return AnimatedBuilder(
+                              animation: curved,
+                              builder: (context, _) {
+                                final t = curved.value;
+                                final scheme = Theme.of(context).colorScheme;
+                                // Слабый «подъём»: почти без увеличения и с низкой тенью
+                                return Transform.scale(
+                                  scale: 1.0 + 0.008 * t,
+                                  alignment: Alignment.center,
+                                  child: Material(
+                                    elevation: 1.5 + 2.5 * t,
+                                    shadowColor: scheme.shadow
+                                        .withValues(alpha: 0.22 * t),
+                                    borderRadius: BorderRadius.circular(16),
+                                    clipBehavior: Clip.antiAlias,
+                                    color: Colors.transparent,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: scheme.primary.withValues(
+                                              alpha: 0.35 + 0.2 * t),
+                                          width: 1.2 + 0.25 * t,
                                         ),
-                                      ],
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: scheme.primary
+                                                .withValues(alpha: 0.06 * t),
+                                            blurRadius: 6 * t,
+                                            spreadRadius: 0,
+                                            offset: Offset(0, 1 * t),
+                                          ),
+                                        ],
+                                      ),
+                                      child: child,
                                     ),
-                                    child: child,
                                   ),
-                                ),
+                                );
+                              },
+                            );
+                          },
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            if (item is PlaceStop) {
+                              return _buildPlaceRow(
+                                context,
+                                key: ValueKey('ps_${item.id}'),
+                                index: index,
+                                stop: item,
                               );
-                            },
-                          );
-                        },
-                        itemBuilder: (context, index) {
-                          final item = items[index];
-                          if (item is PlaceStop) {
-                            return _buildPlaceRow(
-                              context,
-                              key: ValueKey('ps_${item.id}'),
-                              index: index,
-                              stop: item,
-                            );
-                          }
-                          if (item is TravelSegment) {
-                            return _buildTravelRow(
-                              context,
-                              key: ValueKey('ts_${item.id}'),
-                              index: index,
-                              segment: item,
-                            );
-                          }
-                          throw StateError('Unknown itinerary item');
-                        },
-                      ),
+                            }
+                            if (item is TravelSegment) {
+                              return _buildTravelRow(
+                                context,
+                                key: ValueKey('ts_${item.id}'),
+                                index: index,
+                                segment: item,
+                              );
+                            }
+                            throw StateError('Unknown itinerary item');
+                          },
+                        ),
+                ),
               ),
             ],
           ),

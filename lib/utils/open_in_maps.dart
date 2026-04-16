@@ -7,6 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:map_launcher/map_launcher.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../data/maps_preferences.dart';
 
 /// Открывает карты: на Android — системный выбор среди приложений с [geo:],
 /// на iOS — список установленных картографических приложений (через [MapLauncher]).
@@ -26,15 +29,39 @@ Future<void> showOpenInMapsSheet(
     return;
   }
 
+  final maps = await _getInstalledMaps();
+  final preferredMap = await _getPreferredMap(maps);
+  if (!context.mounted) {
+    return;
+  }
+
+  if (preferredMap != null) {
+    final loc = await _resolveLocation(trimmed);
+    if (!context.mounted) {
+      return;
+    }
+    if (loc == null) {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        await _openAndroidMapChooser(context, encoded);
+      } else {
+        await _showCoordinatesUnavailableSheet(context, encoded);
+      }
+      return;
+    }
+    await _openMapWithMarker(context, preferredMap, loc, trimmed);
+    return;
+  }
+
   if (defaultTargetPlatform == TargetPlatform.android) {
     await _openAndroidMapChooser(context, encoded);
     return;
   }
 
-  await _openInstalledMapsSheet(context, trimmed, encoded);
+  await _openInstalledMapsSheet(context, trimmed, encoded, maps: maps);
 }
 
-Future<void> _launchGoogleMapsSearch(BuildContext context, String encoded) async {
+Future<void> _launchGoogleMapsSearch(
+    BuildContext context, String encoded) async {
   final ok = await launchUrl(
     Uri.parse('https://www.google.com/maps/search/?api=1&query=$encoded'),
     mode: LaunchMode.externalApplication,
@@ -77,19 +104,11 @@ Future<void> _openAndroidMapChooser(
 }
 
 Future<void> _openInstalledMapsSheet(
-  BuildContext context,
-  String trimmed,
-  String encoded,
-) async {
-  List<AvailableMap> maps;
-  try {
-    maps = await MapLauncher.installedMaps;
-    maps.sort((a, b) => a.mapName.compareTo(b.mapName));
-  } catch (_) {
-    maps = [];
-  }
+    BuildContext context, String trimmed, String encoded,
+    {List<AvailableMap>? maps}) async {
+  final installedMaps = maps ?? await _getInstalledMaps();
 
-  if (maps.isEmpty) {
+  if (installedMaps.isEmpty) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -103,83 +122,16 @@ Future<void> _openInstalledMapsSheet(
     return;
   }
 
-  List<Location> locations = [];
-  try {
-    locations = await locationFromAddress(trimmed).timeout(
-      const Duration(seconds: 12),
-    );
-  } on TimeoutException {
-    locations = [];
-  } catch (_) {
-    locations = [];
-  }
+  final loc = await _resolveLocation(trimmed);
 
   if (!context.mounted) {
     return;
   }
 
-  if (locations.isEmpty) {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      useSafeArea: true,
-      builder: (ctx) {
-        final scheme = Theme.of(ctx).colorScheme;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Открыть в картах',
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Не удалось определить координаты по этому адресу '
-                '(проверьте сеть и написание). Можно открыть поиск в браузере.',
-                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () async {
-                  Navigator.of(ctx).pop();
-                  await _launchGoogleMapsSearch(context, encoded);
-                },
-                icon: const Icon(Icons.public_rounded),
-                label: const Text('Поиск в Google Картах'),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  Navigator.of(ctx).pop();
-                  final ok = await launchUrl(
-                    Uri.parse('http://maps.apple.com/?q=$encoded'),
-                    mode: LaunchMode.externalApplication,
-                  );
-                  if (!ok && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Не удалось открыть карты')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.map_outlined),
-                label: const Text('Поиск в Apple Картах (веб)'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  if (loc == null) {
+    await _showCoordinatesUnavailableSheet(context, encoded);
     return;
   }
-
-  final loc = locations.first;
 
   await showModalBottomSheet<void>(
     context: context,
@@ -216,30 +168,143 @@ Future<void> _openInstalledMapsSheet(
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  for (final m in maps)
+                  for (final m in installedMaps)
                     ListTile(
-                      leading: const Icon(Icons.map_outlined),
+                      leading: SvgPicture.asset(
+                        m.icon,
+                        width: 24,
+                        height: 24,
+                      ),
                       title: Text(m.mapName),
                       onTap: () async {
                         Navigator.of(ctx).pop();
-                        try {
-                          await m.showMarker(
-                            coords: Coords(loc.latitude, loc.longitude),
-                            title: trimmed,
-                          );
-                        } catch (_) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Не удалось открыть приложение'),
-                              ),
-                            );
-                          }
-                        }
+                        await _openMapWithMarker(context, m, loc, trimmed);
                       },
                     ),
                 ],
               ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+Future<List<AvailableMap>> _getInstalledMaps() async {
+  try {
+    final maps = await MapLauncher.installedMaps;
+    maps.sort((a, b) => a.mapName.compareTo(b.mapName));
+    return maps;
+  } catch (_) {
+    return [];
+  }
+}
+
+Future<AvailableMap?> _getPreferredMap(List<AvailableMap> maps) async {
+  final preferredType = await MapsPreferences.loadPreferredMapType();
+  if (preferredType == null) {
+    return null;
+  }
+  for (final map in maps) {
+    if (map.mapType.name == preferredType.name) {
+      return map;
+    }
+  }
+  return null;
+}
+
+Future<Location?> _resolveLocation(String address) async {
+  try {
+    final locations = await locationFromAddress(address).timeout(
+      const Duration(seconds: 12),
+    );
+    if (locations.isEmpty) {
+      return null;
+    }
+    return locations.first;
+  } on TimeoutException {
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _openMapWithMarker(
+  BuildContext context,
+  AvailableMap map,
+  Location loc,
+  String title,
+) async {
+  try {
+    await map.showMarker(
+      coords: Coords(loc.latitude, loc.longitude),
+      title: title,
+    );
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось открыть приложение')),
+      );
+    }
+  }
+}
+
+Future<void> _showCoordinatesUnavailableSheet(
+  BuildContext context,
+  String encoded,
+) async {
+  await showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    useSafeArea: true,
+    builder: (ctx) {
+      final scheme = Theme.of(ctx).colorScheme;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Открыть в картах',
+              style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Не удалось определить координаты по этому адресу '
+              '(проверьте сеть и написание). Можно открыть поиск в браузере.',
+              style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                await _launchGoogleMapsSearch(context, encoded);
+              },
+              icon: const Icon(Icons.public_rounded),
+              label: const Text('Поиск в Google Картах'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                final ok = await launchUrl(
+                  Uri.parse('http://maps.apple.com/?q=$encoded'),
+                  mode: LaunchMode.externalApplication,
+                );
+                if (!ok && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Не удалось открыть карты')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('Поиск в Apple Картах (веб)'),
             ),
           ],
         ),
