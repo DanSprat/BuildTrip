@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../data/mock_data.dart';
 import '../data/trips_persistence.dart';
+import '../l10n/app_localizations.dart';
 import '../models/trip.dart';
-import '../utils/open_in_maps.dart';
 import '../utils/trip_partition.dart';
 import '../widgets/build_trip_app_bar.dart';
 import 'trip_details_screen.dart';
@@ -67,15 +68,15 @@ class _TripsScreenState extends State<TripsScreen> {
         showBrandIcon: true,
       ),
       body: _trips.isEmpty
-          ? const Center(child: Text('Нет поездок. Добавьте первую!'))
+          ? Center(child: Text(context.l10n.t('tripsEmpty')))
           : ListView(
               physics: const ClampingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 90),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
               children: [
                 if (buckets.active.isNotEmpty) ...[
                   _TripSectionPanel(
-                    title: 'Сейчас в поездке',
-                    subtitle: 'Поездки, в которые попадает сегодняшняя дата',
+                    title: context.l10n.t('sectionNow'),
+                    subtitle: '',
                     icon: Icons.today,
                     tone: _SectionTone.upcoming,
                     trips: buckets.active,
@@ -86,8 +87,8 @@ class _TripsScreenState extends State<TripsScreen> {
                   const SizedBox(height: 16),
                 ],
                 _TripSectionPanel(
-                  title: 'Предстоящие',
-                  subtitle: 'Запланированные поездки',
+                  title: context.l10n.t('sectionUpcoming'),
+                  subtitle: context.l10n.t('sectionUpcomingSubtitle'),
                   icon: Icons.schedule_outlined,
                   tone: _SectionTone.upcoming,
                   trips: buckets.upcoming,
@@ -100,8 +101,8 @@ class _TripsScreenState extends State<TripsScreen> {
                 ),
                 const SizedBox(height: 16),
                 _TripSectionPanel(
-                  title: 'Архив',
-                  subtitle: 'Завершённые поездки',
+                  title: context.l10n.t('sectionArchive'),
+                  subtitle: context.l10n.t('sectionArchiveSubtitle'),
                   icon: Icons.archive_outlined,
                   tone: _SectionTone.past,
                   trips: buckets.past,
@@ -116,7 +117,7 @@ class _TripsScreenState extends State<TripsScreen> {
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddTripBottomSheet,
-        tooltip: 'Новая поездка',
+        tooltip: context.l10n.t('newTrip'),
         child: const Icon(Icons.add),
       ),
     );
@@ -140,7 +141,7 @@ class _TripsScreenState extends State<TripsScreen> {
 
 enum _SectionTone { upcoming, past }
 
-String? _dayProgressLabel(Trip trip, DateTime day) {
+String? _dayProgressLabel(BuildContext context, Trip trip, DateTime day) {
   final start =
       DateTime(trip.startDate.year, trip.startDate.month, trip.startDate.day);
   final end = DateTime(trip.endDate.year, trip.endDate.month, trip.endDate.day);
@@ -149,7 +150,10 @@ String? _dayProgressLabel(Trip trip, DateTime day) {
   }
   final n = day.difference(start).inDays + 1;
   final total = end.difference(start).inDays + 1;
-  return 'День $n из $total';
+  return context.l10n.t(
+    'dayOfTotal',
+    params: {'day': '$n', 'total': '$total'},
+  );
 }
 
 class _TripSectionPanel extends StatelessWidget {
@@ -267,7 +271,7 @@ class _TripSectionPanel extends StatelessWidget {
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         if (trips.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -289,7 +293,7 @@ class _TripSectionPanel extends StatelessWidget {
                                 onTripUpdated: onTripUpdated,
                                 dayProgressLabel: dayProgressAnchor != null
                                     ? _dayProgressLabel(
-                                        trip, dayProgressAnchor!)
+                                        context, trip, dayProgressAnchor!)
                                     : null,
                               ),
                             ),
@@ -428,7 +432,7 @@ class _TripCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '$days ${_dayWord(days)}',
+                      '$days ${_dayWord(context, days)}',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             color: variant == _TripCardVariant.past
                                 ? scheme.onSurfaceVariant
@@ -451,14 +455,15 @@ class _TripCard extends StatelessWidget {
     return '$dayValue.$monthValue.${date.year}';
   }
 
-  String _dayWord(int d) {
+  String _dayWord(BuildContext context, int d) {
+    final l10n = context.l10n;
     if (d % 10 == 1 && d % 100 != 11) {
-      return 'день';
+      return l10n.t('days_one');
     }
     if (d % 10 >= 2 && d % 10 <= 4 && (d % 100 < 12 || d % 100 > 14)) {
-      return 'дня';
+      return l10n.t('days_few');
     }
-    return 'дней';
+    return l10n.t('days_many');
   }
 }
 
@@ -479,16 +484,10 @@ class _AddTripSheetState extends State<_AddTripSheet> {
   @override
   void initState() {
     super.initState();
-    _destinationController.addListener(_onDestinationChanged);
-  }
-
-  void _onDestinationChanged() {
-    setState(() {});
   }
 
   @override
   void dispose() {
-    _destinationController.removeListener(_onDestinationChanged);
     _nameController.dispose();
     _destinationController.dispose();
     super.dispose();
@@ -496,6 +495,7 @@ class _AddTripSheetState extends State<_AddTripSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
     final formInputs = InputDecorationTheme(
@@ -551,100 +551,106 @@ class _AddTripSheetState extends State<_AddTripSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Новая поездка',
+                Text(l10n.t('newTrip'),
                     style: t.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 Text(
-                  'Название, направление и даты',
+                  l10n.t('newTripSubtitle'),
                   style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Название'),
+                  decoration: InputDecoration(labelText: l10n.t('tripName')),
                   textCapitalization: TextCapitalization.sentences,
                   validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Введите название'
+                      ? l10n.t('enterTitle')
                       : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _destinationController,
-                  decoration: const InputDecoration(
-                    labelText: 'Страна или город',
-                    hintText: 'Например: Швейцария, Цюрих',
+                  decoration: InputDecoration(
+                    labelText: l10n.t('tripDestination'),
+                    hintText: l10n.t('tripDestinationHint'),
                   ),
                   textCapitalization: TextCapitalization.sentences,
                   validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Введите направление'
+                      ? l10n.t('enterDestination')
                       : null,
                 ),
-                const SizedBox(height: 6),
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: TextButton.icon(
-                    onPressed: _destinationController.text.trim().isEmpty
-                        ? null
-                        : () => _openDestinationInMaps(
-                            _destinationController.text.trim()),
-                    icon: Icon(
-                      Icons.map_outlined,
-                      size: 20,
-                      color: _destinationController.text.trim().isEmpty
-                          ? scheme.onSurfaceVariant.withValues(alpha: 0.45)
-                          : scheme.primary,
-                    ),
-                    label: Text(
-                      'Открыть в картах',
-                      style: TextStyle(
-                        color: _destinationController.text.trim().isEmpty
-                            ? scheme.onSurfaceVariant
-                            : scheme.primary,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      visualDensity: VisualDensity.compact,
-                    ),
+                const SizedBox(height: 14),
+                Text(l10n.t('dates'), style: t.labelLarge),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  style: dateButtonStyle,
+                  onPressed: _pickDateRange,
+                  icon: Icon(
+                    Icons.calendar_month_outlined,
+                    size: 20,
+                    color: scheme.primary,
+                  ),
+                  label: Text(
+                    _dateRangeLabel(context),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
-                const SizedBox(height: 14),
-                Text('Даты', style: t.labelLarge),
                 const SizedBox(height: 10),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: dateButtonStyle,
-                        onPressed: _pickStartDate,
-                        icon: Icon(Icons.calendar_today_outlined,
-                            size: 20, color: scheme.primary),
-                        label: Text(
-                          _startDate == null
-                              ? 'Начало'
-                              : _formatDate(_startDate!),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
+                    _QuickRangeChip(
+                      label: context.l10n.t('quickRangeWeekend'),
+                      onTap: () => _applyQuickRange(2),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: dateButtonStyle,
-                        onPressed: _pickEndDate,
-                        icon: Icon(Icons.event_outlined,
-                            size: 20, color: scheme.primary),
-                        label: Text(
-                          _endDate == null ? 'Конец' : _formatDate(_endDate!),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
+                    _QuickRangeChip(
+                      label: context.l10n.t('quickRangeWeek'),
+                      onTap: () => _applyQuickRange(7),
+                    ),
+                    _QuickRangeChip(
+                      label: context.l10n.t('quickRangeTwoWeeks'),
+                      onTap: () => _applyQuickRange(14),
                     ),
                   ],
                 ),
+                if (_startDate != null && _endDate != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.timelapse_outlined,
+                          size: 18,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          context.l10n.t(
+                            'tripDuration',
+                            params: {'days': _tripDaysCount().toString()},
+                          ),
+                          style: t.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,
@@ -656,7 +662,7 @@ class _AddTripSheetState extends State<_AddTripSheet> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Text('Добавить поездку'),
+                    child: Text(l10n.t('addTrip')),
                   ),
                 ),
               ],
@@ -667,46 +673,57 @@ class _AddTripSheetState extends State<_AddTripSheet> {
     );
   }
 
-  Future<void> _openDestinationInMaps(String query) async {
-    await showOpenInMapsSheet(context, query: query);
-  }
-
-  Future<void> _pickStartDate() async {
+  Future<void> _pickDateRange() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final initialStart = _startDate ?? now;
+    final initialEnd = _endDate ?? initialStart;
+    final picked = await showDateRangePicker(
       context: context,
-      initialDate: _startDate ?? now,
+      initialDateRange: DateTimeRange(start: initialStart, end: initialEnd),
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 5),
+      builder: (context, child) {
+        final scheme = Theme.of(context).colorScheme;
+        return Theme(
+          data: Theme.of(context).copyWith(
+            datePickerTheme: DatePickerThemeData(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              rangeSelectionBackgroundColor: scheme.primaryContainer,
+              rangeSelectionOverlayColor:
+                  WidgetStatePropertyAll(scheme.primary.withValues(alpha: 0.1)),
+              dayShape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
     if (picked != null) {
       setState(() {
-        _startDate = picked;
-        if (_endDate != null && _endDate!.isBefore(picked)) {
-          _endDate = picked;
-        }
+        _startDate = DateTime(
+          picked.start.year,
+          picked.start.month,
+          picked.start.day,
+        );
+        _endDate = DateTime(
+          picked.end.year,
+          picked.end.month,
+          picked.end.day,
+        );
       });
     }
   }
 
-  Future<void> _pickEndDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _endDate ?? _startDate ?? now,
-      firstDate: _startDate ?? DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 5),
-    );
-    if (picked != null) {
-      setState(() => _endDate = picked);
-    }
-  }
-
   void _submit() {
+    final l10n = context.l10n;
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid || _startDate == null || _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните все поля и выберите даты.')),
+        SnackBar(content: Text(l10n.t('fillAllFields'))),
       );
       return;
     }
@@ -718,9 +735,9 @@ class _AddTripSheetState extends State<_AddTripSheet> {
     final generatedDays = List<TripDay>.generate(totalDays, (index) {
       final currentDate = start.add(Duration(days: index));
       return TripDay(
-        title: 'День ${index + 1}',
+        title: l10n.t('dayTitle', params: {'day': '${index + 1}'}),
         date: currentDate,
-        description: 'План на день ${index + 1}.',
+        description: l10n.t('dayTitle', params: {'day': '${index + 1}'}),
         items: const [],
       );
     });
@@ -738,8 +755,50 @@ class _AddTripSheetState extends State<_AddTripSheet> {
   }
 
   String _formatDate(DateTime date) {
-    final dayValue = date.day.toString().padLeft(2, '0');
-    final monthValue = date.month.toString().padLeft(2, '0');
-    return '$dayValue.$monthValue.${date.year}';
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    return DateFormat('dd.MM.yyyy', locale).format(date);
+  }
+
+  String _dateRangeLabel(BuildContext context) {
+    if (_startDate == null || _endDate == null) {
+      return context.l10n.t('pickTripDates');
+    }
+    return '${_formatDate(_startDate!)} — ${_formatDate(_endDate!)}';
+  }
+
+  int _tripDaysCount() {
+    if (_startDate == null || _endDate == null) {
+      return 0;
+    }
+    return _endDate!.difference(_startDate!).inDays + 1;
+  }
+
+  void _applyQuickRange(int days) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final end = start.add(Duration(days: days - 1));
+    setState(() {
+      _startDate = start;
+      _endDate = end;
+    });
+  }
+}
+
+class _QuickRangeChip extends StatelessWidget {
+  const _QuickRangeChip({
+    required this.label,
+    required this.onTap,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: const Icon(Icons.auto_awesome_outlined, size: 16),
+      label: Text(label),
+      onPressed: onTap,
+    );
   }
 }

@@ -1,8 +1,10 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/trip.dart';
 import '../theme/build_trip_form_theme.dart';
 import '../widgets/build_trip_app_bar.dart';
@@ -29,6 +31,7 @@ class PlaceDetailsScreen extends StatefulWidget {
 class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _editing = false;
+  bool _isClosing = false;
 
   /// Снимок при входе в режим редактирования (для «Отменить изменения»).
   Place? _editBaseline;
@@ -64,7 +67,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   }
 
   void _onAddressChanged() {
-    setState(() {});
+    if (_editing && mounted) {
+      setState(() {});
+    }
   }
 
   void _onAnyFieldChanged() {
@@ -102,11 +107,11 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       },
       child: Scaffold(
         appBar: BuildTripAppBar(
-          titleText: 'Место',
+          titleText: context.l10n.t('place'),
           onBackPressed: _popWithAutoSave,
           actions: [
             IconButton(
-              tooltip: 'Удалить',
+              tooltip: context.l10n.t('delete'),
               onPressed: () =>
                   Navigator.of(context).pop(PlaceDetailsScreen.deleteMarker),
               style:
@@ -117,21 +122,21 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
             if (_editing) ...[
               if (_editDirty)
                 IconButton(
-                  tooltip: 'Отменить изменения',
+                  tooltip: context.l10n.t('undoChanges'),
                   onPressed: _undoEdit,
                   style: BuildTripAppBar.toolbarIconStyle(scheme),
                   icon: const Icon(Icons.undo_rounded),
                 ),
               if (_editDirty) const SizedBox(width: 2),
               IconButton(
-                tooltip: 'Готово',
+                tooltip: context.l10n.t('done'),
                 onPressed: _popWithAutoSave,
                 style: BuildTripAppBar.toolbarIconStyle(scheme),
                 icon: const Icon(Icons.check_rounded),
               ),
             ] else
               IconButton(
-                tooltip: 'Редактировать',
+                tooltip: context.l10n.t('edit'),
                 onPressed: _startEditing,
                 style: BuildTripAppBar.toolbarIconStyle(scheme),
                 icon: const Icon(Icons.edit_outlined),
@@ -153,7 +158,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                         children: [
                           BuildTripSectionCard(
                             icon: Icons.tune_rounded,
-                            title: 'Основное',
+                            title: context.l10n.t('main'),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -167,7 +172,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                                     key: ValueKey(_kind),
                                     width: innerW,
                                     initialSelection: _kind,
-                                    label: const Text('Тип места'),
+                                    label: Text(context.l10n.t('placeType')),
                                     leadingIcon: Icon(
                                       PlaceKindVisual.of(context, _kind).icon,
                                       color: PlaceKindVisual.of(context, _kind)
@@ -191,7 +196,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                                           in PlaceKindVisual.pickerOrder)
                                         DropdownMenuEntry<PlaceKind>(
                                           value: k,
-                                          label: PlaceKindVisual.labelRu(k),
+                                          label: PlaceKindVisual.label(context, k),
                                           leadingIcon: Icon(
                                             PlaceKindVisual.of(context, k).icon,
                                             size: 22,
@@ -206,71 +211,31 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                                 const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _nameController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Название',
+                                  decoration: InputDecoration(
+                                    labelText: context.l10n.t('name'),
                                   ),
                                   textCapitalization:
                                       TextCapitalization.sentences,
                                   validator: (value) =>
                                       value == null || value.trim().isEmpty
-                                          ? 'Введите название'
+                                          ? context.l10n.t('enterPlaceName')
                                           : null,
                                 ),
                                 const SizedBox(height: 14),
-                                TextFormField(
-                                  controller: _addressController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Адрес',
-                                    hintText: 'Необязательно',
-                                  ),
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                ),
-                                const SizedBox(height: 12),
-                                if (_addressController.text.trim().isNotEmpty)
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: FilledButton.tonalIcon(
-                                      onPressed: () => _openAddressInMaps(
-                                        _addressController.text.trim(),
-                                      ),
-                                      icon: const Icon(Icons.map_rounded,
-                                          size: 22),
-                                      label: const Text('Открыть в картах'),
-                                      style: FilledButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 12),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(14),
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  Text(
-                                    'После ввода адреса здесь появится кнопка открытия в картах',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: scheme.onSurfaceVariant,
-                                          height: 1.35,
-                                        ),
-                                  ),
+                                _buildAddressEditingSection(scheme),
                               ],
                             ),
                           ),
                           BuildTripSectionCard(
                             icon: Icons.sticky_note_2_outlined,
-                            title: 'Заметки',
+                            title: context.l10n.t('notes'),
                             child: TextFormField(
                               controller: _notesController,
                               minLines: 1,
                               maxLines: 8,
-                              decoration: const InputDecoration(
-                                labelText: 'Текст заметок',
-                                hintText: 'Необязательно',
+                              decoration: InputDecoration(
+                                labelText: context.l10n.t('notesText'),
+                                hintText: context.l10n.t('optional'),
                                 alignLabelWithHint: true,
                               ),
                               textCapitalization: TextCapitalization.sentences,
@@ -278,19 +243,17 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                           ),
                           BuildTripSectionCard(
                             icon: Icons.attach_file_rounded,
-                            title: 'Файлы',
+                            title: context.l10n.t('files'),
                             titleTrailing: IconButton(
-                              tooltip: 'Добавить файлы',
-                              style:
-                                  BuildTripAppBar.toolbarIconStyle(scheme),
+                              tooltip: context.l10n.t('addFiles'),
+                              style: BuildTripAppBar.toolbarIconStyle(scheme),
                               onPressed: _pickFiles,
                               icon: const Icon(Icons.upload_file_rounded),
                             ),
                             child: _attachments.isEmpty
-                                ? const BuildTripEmptyHint(
+                                ? BuildTripEmptyHint(
                                     icon: Icons.folder_open_rounded,
-                                    message:
-                                        'Пока нет файлов — нажмите иконку загрузки справа',
+                                    message: context.l10n.t('noFilesAddHint'),
                                   )
                                 : Column(
                                     crossAxisAlignment:
@@ -308,12 +271,12 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                           BuildTripSectionCard(
                             marginBottom: 0,
                             icon: Icons.link_rounded,
-                            title: 'Ссылки',
+                            title: context.l10n.t('links'),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text(
-                                  'Укажите адрес (название — по желанию), затем нажмите кнопку ниже.',
+                                  context.l10n.t('linksHint'),
                                   style: Theme.of(context)
                                       .textTheme
                                       .bodySmall
@@ -328,11 +291,11 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                                   controller: _newLinkTitleController,
                                   textCapitalization:
                                       TextCapitalization.sentences,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Название',
-                                    hintText: 'Необязательно',
+                                  decoration: InputDecoration(
+                                    labelText: context.l10n.t('name'),
+                                    hintText: context.l10n.t('optional'),
                                     isDense: true,
-                                    contentPadding: EdgeInsets.symmetric(
+                                    contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 14,
                                       vertical: 12,
                                     ),
@@ -344,11 +307,11 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                                   keyboardType: TextInputType.url,
                                   textInputAction: TextInputAction.done,
                                   autocorrect: false,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Адрес ссылки',
+                                  decoration: InputDecoration(
+                                    labelText: context.l10n.t('linkAddress'),
                                     hintText: 'https://…',
                                     isDense: true,
-                                    contentPadding: EdgeInsets.symmetric(
+                                    contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 14,
                                       vertical: 12,
                                     ),
@@ -360,9 +323,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                                   width: double.infinity,
                                   child: FilledButton.tonalIcon(
                                     onPressed: _addCustomLink,
-                                    icon: const Icon(Icons.add_rounded,
-                                        size: 22),
-                                    label: const Text('Добавить ссылку'),
+                                    icon:
+                                        const Icon(Icons.add_rounded, size: 22),
+                                    label: Text(context.l10n.t('addLink')),
                                     style: FilledButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 12,
@@ -375,10 +338,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 if (_customLinks.isEmpty)
-                                  const BuildTripEmptyHint(
+                                  BuildTripEmptyHint(
                                     icon: Icons.link_off_rounded,
-                                    message:
-                                        'Пока нет ссылок — добавьте первую выше',
+                                    message: context.l10n.t('noLinksYet'),
                                   )
                                 else
                                   ...List<Widget>.generate(
@@ -472,7 +434,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     if (url.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Введите адрес ссылки')),
+        SnackBar(content: Text(context.l10n.t('enterLinkAddress'))),
         );
       }
       return;
@@ -604,7 +566,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                 ),
               ),
               IconButton(
-                tooltip: 'Удалить',
+                tooltip: context.l10n.t('delete'),
                 visualDensity: VisualDensity.compact,
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 padding: EdgeInsets.zero,
@@ -652,7 +614,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   }
 
   void _popWithAutoSave() {
-    if (!mounted) {
+    if (!mounted || _isClosing) {
       return;
     }
     if (_editing) {
@@ -663,12 +625,19 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     } else {
       if (_composeUpdatedPlace().name.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Введите название места')),
+        SnackBar(content: Text(context.l10n.t('enterPlaceName'))),
         );
         return;
       }
     }
-    Navigator.of(context).pop(_composeUpdatedPlace());
+    _isClosing = true;
+    final updated = _composeUpdatedPlace();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(updated);
+    });
   }
 
   List<Widget> _buildReadOnlyChildren(ColorScheme scheme) {
@@ -682,11 +651,11 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       const SizedBox(height: 12),
       BuildTripSectionCard(
         icon: Icons.sticky_note_2_outlined,
-        title: 'Заметки',
+        title: context.l10n.t('notes'),
         child: notes.isEmpty
-            ? const BuildTripEmptyHint(
+            ? BuildTripEmptyHint(
                 icon: Icons.edit_note_rounded,
-                message: 'Пока без заметок',
+                message: context.l10n.t('noNotesYet'),
               )
             : Text(
                 notes,
@@ -695,11 +664,11 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       ),
       BuildTripSectionCard(
         icon: Icons.attach_file_rounded,
-        title: 'Файлы',
+        title: context.l10n.t('files'),
         child: _attachments.isEmpty
-            ? const BuildTripEmptyHint(
+            ? BuildTripEmptyHint(
                 icon: Icons.folder_open_rounded,
-                message: 'Нет прикреплённых файлов',
+                message: context.l10n.t('noAttachedFiles'),
               )
             : Column(
                 children: _attachments
@@ -710,11 +679,11 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       BuildTripSectionCard(
         marginBottom: 0,
         icon: Icons.link_rounded,
-        title: 'Ссылки',
+        title: context.l10n.t('links'),
         child: _customLinks.isEmpty
-            ? const BuildTripEmptyHint(
+            ? BuildTripEmptyHint(
                 icon: Icons.link_off_rounded,
-                message: 'Ссылок пока нет',
+                message: context.l10n.t('noLinksYet'),
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -784,7 +753,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        PlaceKindVisual.labelRu(_kind),
+                        PlaceKindVisual.label(context, _kind),
                         style: t.labelMedium?.copyWith(
                           color: visual.accent,
                           fontWeight: FontWeight.w700,
@@ -803,7 +772,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2),
                           child: Text(
-                            name.isEmpty ? 'Без названия' : name,
+                            name.isEmpty ? context.l10n.t('withoutTitle') : name,
                             style: t.headlineSmall?.copyWith(
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.5,
@@ -859,27 +828,30 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
               ),
             ],
           ),
-          if (addr.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.tonalIcon(
-                onPressed: () => _openAddressInMaps(addr),
-                icon: const Icon(Icons.map_rounded, size: 22),
-                label: const Text('Открыть в картах'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: addr.isEmpty ? null : () => _openAddressInMaps(addr),
+              icon: const Icon(Icons.map_rounded, size: 22),
+              label: Text(context.l10n.t('openInMaps')),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
+                disabledBackgroundColor:
+                    scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                disabledForegroundColor:
+                    scheme.onSurfaceVariant.withValues(alpha: 0.6),
               ),
             ),
-          ] else ...[
+          ),
+          if (addr.isEmpty) ...[
             const SizedBox(height: 12),
-            const BuildTripEmptyHint(
+            BuildTripEmptyHint(
               icon: Icons.location_off_outlined,
-              message: 'Адрес не указан — добавьте в режиме редактирования',
+              message: context.l10n.t('addressMissingHint'),
             ),
           ],
         ],
@@ -923,7 +895,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                 ),
                 if (editing) ...[
                   IconButton(
-                    tooltip: 'Имя',
+                    tooltip: context.l10n.t('name'),
                     constraints:
                         const BoxConstraints(minWidth: 40, minHeight: 40),
                     padding: EdgeInsets.zero,
@@ -931,7 +903,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                     icon: const Icon(Icons.label_outline, size: 22),
                   ),
                   IconButton(
-                    tooltip: 'Удалить',
+                    tooltip: context.l10n.t('delete'),
                     constraints:
                         const BoxConstraints(minWidth: 40, minHeight: 40),
                     padding: EdgeInsets.zero,
@@ -956,7 +928,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     final result = await OpenFile.open(path);
     if (result.type != ResultType.done && mounted) {
       final msg = result.message.trim().isEmpty
-          ? 'Не удалось открыть файл'
+          ? context.l10n.t('failedToOpenFile')
           : result.message;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
@@ -966,13 +938,218 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     await showOpenInMapsSheet(context, query: address);
   }
 
+  /// Адрес в режиме редактирования: превью + выбор источника через карты / вручную / буфер.
+  Widget _buildAddressEditingSection(ColorScheme scheme) {
+    final addr = _addressController.text.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          context.l10n.t('address'),
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        const SizedBox(height: 6),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.55),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Text(
+              addr.isEmpty
+                  ? context.l10n.t('addressNotSetHint')
+                  : addr,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: addr.isEmpty
+                        ? scheme.onSurfaceVariant
+                        : scheme.onSurface,
+                    height: 1.35,
+                  ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton.tonalIcon(
+          onPressed: () => _showChooseAddressOnMapSheet(context),
+          icon: const Icon(Icons.map_outlined, size: 22),
+          label: Text(context.l10n.t('chooseOnMap')),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+        if (addr.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _openAddressInMaps(addr),
+              icon: const Icon(Icons.open_in_new_rounded, size: 20),
+              label: Text(context.l10n.t('openCurrentAddressInMaps')),
+            ),
+          ),
+        ],
+        const SizedBox(height: 4),
+        TextButton.icon(
+          onPressed: _openManualAddressDialog,
+          icon: const Icon(Icons.edit_outlined, size: 20),
+          label: Text(context.l10n.t('enterAddressManually')),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showChooseAddressOnMapSheet(BuildContext sheetContext) async {
+    final scheme = Theme.of(sheetContext).colorScheme;
+    final name = _nameController.text.trim();
+    final addr = _addressController.text.trim();
+
+    await showModalBottomSheet<void>(
+      context: sheetContext,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Text(
+                  context.l10n.t('howToFillAddress'),
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text(
+                  context.l10n.t('addressFillHint'),
+                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                ),
+              ),
+              ListTile(
+                leading:
+                    Icon(Icons.label_outline_rounded, color: scheme.primary),
+                title: Text(context.l10n.t('searchByPlaceName')),
+                subtitle: Text(
+                  name.isEmpty ? context.l10n.t('enterNameFirst') : name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                enabled: name.isNotEmpty,
+                onTap: name.isEmpty
+                    ? null
+                    : () {
+                        Navigator.of(ctx).pop();
+                        _runAfterSheetClosed(() async {
+                          await showOpenInMapsSheet(context, query: name);
+                        });
+                      },
+              ),
+              ListTile(
+                leading: Icon(Icons.place_outlined, color: scheme.primary),
+                title: Text(context.l10n.t('searchByCurrentAddress')),
+                subtitle: Text(
+                  addr.isEmpty ? context.l10n.t('addressIsEmpty') : addr,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                enabled: addr.isNotEmpty,
+                onTap: addr.isEmpty
+                    ? null
+                    : () {
+                        Navigator.of(ctx).pop();
+                        _runAfterSheetClosed(() async {
+                          await showOpenInMapsSheet(context, query: addr);
+                        });
+                      },
+              ),
+              ListTile(
+                leading: Icon(Icons.edit_outlined, color: scheme.primary),
+                title: Text(context.l10n.t('enterAddressWithKeyboard')),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _runAfterSheetClosed(_openManualAddressDialog);
+                },
+              ),
+              ListTile(
+                leading:
+                    Icon(Icons.content_paste_rounded, color: scheme.primary),
+                title: Text(context.l10n.t('pasteFromClipboard')),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _runAfterSheetClosed(_pasteAddressFromClipboard);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _runAfterSheetClosed(Future<void> Function() action) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+      await action();
+    });
+  }
+
+  Future<void> _openManualAddressDialog() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _ManualAddressDialog(
+        initialText: _addressController.text,
+      ),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    _addressController.text = result;
+  }
+
+  Future<void> _pasteAddressFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+    if (!mounted) {
+      return;
+    }
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.t('clipboardEmpty'))),
+      );
+      return;
+    }
+    _addressController.text = text;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.t('addressPastedFromClipboard'))),
+    );
+  }
+
   /// Открыть ссылку в браузере; если схемы нет — подставляем https.
   Future<void> _openLinkInBrowser(String raw) async {
     final uri = _linkUriOrNull(raw);
     if (uri == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось разобрать адрес ссылки')),
+          SnackBar(content: Text(context.l10n.t('failedToParseLink'))),
         );
       }
       return;
@@ -980,7 +1157,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось открыть ссылку')),
+          SnackBar(content: Text(context.l10n.t('failedToOpenLink'))),
         );
       }
     }
@@ -1064,34 +1241,10 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   Future<String?> _promptDisplayName(
     BuildContext context, {
     required String suggested,
-  }) async {
-    final controller = TextEditingController(text: suggested);
+  }) {
     return showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Название в списке'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Как показывать (как ссылка)',
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, ''),
-            child: const Text('По умолчанию'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+      builder: (ctx) => _PromptDisplayNameDialog(suggested: suggested),
     );
   }
 
@@ -1101,5 +1254,103 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       return normalized;
     }
     return normalized.split('/').last;
+  }
+}
+
+/// Диалог ввода адреса: контроллер живёт в State и [dispose] после закрытия маршрута
+/// (иначе при анимации закрытия [TextField] обращается к уже [dispose] контроллеру).
+class _ManualAddressDialog extends StatefulWidget {
+  const _ManualAddressDialog({required this.initialText});
+
+  final String initialText;
+
+  @override
+  State<_ManualAddressDialog> createState() => _ManualAddressDialogState();
+}
+
+class _ManualAddressDialogState extends State<_ManualAddressDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialText);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(context.l10n.t('placeAddress')),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLines: 3,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+          hintText: context.l10n.t('streetCityCountryHint'),
+          border: const OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(context.l10n.t('cancel')),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: Text(context.l10n.t('save')),
+        ),
+      ],
+    );
+  }
+}
+
+class _PromptDisplayNameDialog extends StatefulWidget {
+  const _PromptDisplayNameDialog({required this.suggested});
+
+  final String suggested;
+
+  @override
+  State<_PromptDisplayNameDialog> createState() =>
+      _PromptDisplayNameDialogState();
+}
+
+class _PromptDisplayNameDialogState extends State<_PromptDisplayNameDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.suggested);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(context.l10n.t('displayNameInList')),
+      content: TextField(
+        controller: _controller,
+        decoration: InputDecoration(
+          hintText: context.l10n.t('howToDisplayAsLink'),
+        ),
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.l10n.t('cancel')),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, ''),
+          child: Text(context.l10n.t('defaultValue')),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          child: Text(context.l10n.t('ok')),
+        ),
+      ],
+    );
   }
 }

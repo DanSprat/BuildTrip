@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/trip.dart';
+import '../utils/day_title_localization.dart';
 import '../widgets/build_trip_app_bar.dart';
 import '../widgets/itinerary_widgets.dart';
 import 'place_details_screen.dart';
@@ -58,15 +61,14 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
         },
         child: Scaffold(
           appBar: BuildTripAppBar(
-            titleText: 'День',
+            titleText: context.l10n.t('dayLabel'),
             onBackPressed: _popWithUpdatedTrip,
           ),
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'В этой поездке нет ни одного дня в маршруте.\n'
-                'Так бывает при повреждённых данных; вернитесь назад и откройте другую поездку.',
+                context.l10n.t('dayListCorrupted'),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -80,6 +82,8 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
     }
 
     final items = _selectedDay.items;
+    final resolvedSelectedDayTitle =
+        localizeDayTitleIfAuto(context, _selectedDay.title);
 
     return PopScope(
       canPop: false,
@@ -90,13 +94,13 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
       },
       child: Scaffold(
         appBar: BuildTripAppBar(
-          titleText: _selectedDay.title,
+          titleText: resolvedSelectedDayTitle,
           centerTitle: true,
-          titleWidget: _DayAppBarTitle(title: _selectedDay.title),
+          titleWidget: _DayAppBarTitle(title: resolvedSelectedDayTitle),
           onBackPressed: _popWithUpdatedTrip,
           actions: [
             IconButton(
-              tooltip: 'Добавить в маршрут',
+              tooltip: context.l10n.t('addToItinerary'),
               onPressed: _showAddItinerarySheet,
               style: BuildTripAppBar.toolbarIconStyle(
                   Theme.of(context).colorScheme),
@@ -131,7 +135,7 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
                   child: items.isEmpty
                       ? Center(
                           child: Tooltip(
-                            message: 'Добавить в маршрут',
+                            message: context.l10n.t('addToItinerary'),
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
@@ -340,7 +344,7 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Добавить в маршрут',
+                context.l10n.t('addToItinerary'),
                 textAlign: TextAlign.center,
                 style: t.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
@@ -349,7 +353,7 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Выберите тип элемента дня',
+                context.l10n.t('chooseDayItemType'),
                 textAlign: TextAlign.center,
                 style: t.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
@@ -363,8 +367,8 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
                     Expanded(
                       child: _AddItineraryOptionCard(
                         icon: Icons.place_outlined,
-                        title: 'Пункт назначения',
-                        subtitle: 'Достопримечательность, отель, еда…',
+                        title: context.l10n.t('destinationPoint'),
+                        subtitle: context.l10n.t('destinationPointSubtitle'),
                         accent: scheme.primary,
                         onTap: () {
                           Navigator.pop(sheetContext);
@@ -376,8 +380,8 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
                     Expanded(
                       child: _AddItineraryOptionCard(
                         icon: Icons.alt_route_rounded,
-                        title: 'Перемещение',
-                        subtitle: 'Транспорт между точками',
+                        title: context.l10n.t('travelSegment'),
+                        subtitle: context.l10n.t('travelSegmentSubtitle'),
                         accent: scheme.tertiary,
                         onTap: () {
                           Navigator.pop(sheetContext);
@@ -397,8 +401,8 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
 
   Future<void> _addPlaceStopAndEdit() async {
     final id = 'ps_${DateTime.now().microsecondsSinceEpoch}';
-    const newPlace = Place(
-      name: 'Новый пункт',
+    final newPlace = Place(
+      name: context.l10n.t('newPoint'),
       address: '',
       kind: PlaceKind.attraction,
     );
@@ -505,7 +509,7 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
     });
   }
 
-  static String _placeListSubtitle(Place place) {
+  String _placeListSubtitle(Place place) {
     final addr = place.address.trim();
     final rawNotes = place.notes?.trim();
     final hasNotes = rawNotes != null && rawNotes.isNotEmpty;
@@ -518,7 +522,7 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
     if (addr.isNotEmpty) {
       return addr;
     }
-    return 'Адрес не указан';
+    return context.l10n.t('addressNotProvided');
   }
 
   static bool _placeListSubtitleIsThreeLine(Place place) {
@@ -529,24 +533,8 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
   }
 
   String _weekdayShort(DateTime date) {
-    switch (date.weekday) {
-      case DateTime.monday:
-        return 'Пн';
-      case DateTime.tuesday:
-        return 'Вт';
-      case DateTime.wednesday:
-        return 'Ср';
-      case DateTime.thursday:
-        return 'Чт';
-      case DateTime.friday:
-        return 'Пт';
-      case DateTime.saturday:
-        return 'Сб';
-      case DateTime.sunday:
-        return 'Вс';
-      default:
-        return '';
-    }
+    final localeTag = Localizations.localeOf(context).toLanguageTag();
+    return DateFormat('E', localeTag).format(date);
   }
 }
 
@@ -555,9 +543,6 @@ class _DayAppBarTitle extends StatelessWidget {
   const _DayAppBarTitle({required this.title});
 
   final String title;
-
-  static final RegExp _dayNum =
-      RegExp(r'^День\s+(\d+)\s*$', caseSensitive: false);
 
   @override
   Widget build(BuildContext context) {
@@ -571,50 +556,20 @@ class _DayAppBarTitle extends StatelessWidget {
       color: Color.lerp(scheme.onSurface, scheme.primary, 0.08),
     );
 
-    final m = _dayNum.firstMatch(title.trim());
-    if (m == null) {
-      return Text(
-        title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: baseStyle,
-      );
-    }
-
-    final n = m.group(1)!;
     return Text(
-      'День $n',
+      title,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
-      style: t.titleMedium?.copyWith(
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.35,
-        height: 1.15,
-        color: Color.lerp(scheme.onSurface, scheme.primary, 0.12),
-      ),
+      style: baseStyle,
     );
   }
 }
 
 /// Короткое имя месяца для компактных чипов дней (как на экране поездки).
-String _monthShortRu(DateTime d) {
-  const names = <String>[
-    'янв',
-    'фев',
-    'мар',
-    'апр',
-    'май',
-    'июн',
-    'июл',
-    'авг',
-    'сен',
-    'окт',
-    'ноя',
-    'дек',
-  ];
-  return names[d.month - 1];
+String _monthShortLocalized(BuildContext context, DateTime d) {
+  final localeTag = Localizations.localeOf(context).toLanguageTag();
+  return DateFormat('MMM', localeTag).format(d);
 }
 
 class _AddItineraryOptionCard extends StatelessWidget {
@@ -809,7 +764,7 @@ class _DayStrip extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${day.date.day.toString().padLeft(2, '0')} ${_monthShortRu(day.date)}',
+                      '${day.date.day.toString().padLeft(2, '0')} ${_monthShortLocalized(context, day.date)}',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             fontSize: 12,
@@ -937,7 +892,7 @@ class _RouteSectionHeading extends StatelessWidget {
               Icon(Icons.map_outlined, size: 20, color: scheme.primary),
               const SizedBox(width: 8),
               Text(
-                'Маршрут',
+                context.l10n.t('route'),
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),

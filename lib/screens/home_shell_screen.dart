@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import 'settings_screen.dart';
 import 'trips_screen.dart';
 
@@ -16,6 +17,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: IndexedStack(
         index: _index,
@@ -27,16 +29,16 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.luggage_outlined),
-            selectedIcon: Icon(Icons.luggage_rounded),
-            label: 'Поездки',
+            icon: const Icon(Icons.luggage_outlined),
+            selectedIcon: const Icon(Icons.luggage_rounded),
+            label: l10n.t('tabTrips'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings_rounded),
-            label: 'Настройки',
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings_rounded),
+            label: l10n.t('tabSettings'),
           ),
         ],
       ),

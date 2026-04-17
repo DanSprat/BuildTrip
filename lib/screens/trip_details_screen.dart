@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/trip.dart';
+import '../utils/day_title_localization.dart';
 import '../widgets/build_trip_app_bar.dart';
 import 'day_details_screen.dart';
 
@@ -70,7 +73,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'В поездке пока нет дней маршрута.',
+                            context.l10n.t('tripNoDays'),
                             textAlign: TextAlign.center,
                             style: Theme.of(context)
                                 .textTheme
@@ -210,6 +213,7 @@ class _DayRowTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedDayTitle = localizeDayTitleIfAuto(context, day.title);
     final scheme = Theme.of(context).colorScheme;
     final outline = isToday
         ? scheme.primary.withValues(alpha: 0.42)
@@ -265,7 +269,7 @@ class _DayRowTile extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _monthShortRu(day.date),
+                          _monthShortLocalized(context, day.date),
                           style:
                               Theme.of(context).textTheme.labelSmall?.copyWith(
                                     color: monthColor,
@@ -292,7 +296,7 @@ class _DayRowTile extends StatelessWidget {
                                   height: 1.2,
                                 ),
                             children: [
-                              TextSpan(text: day.title),
+                              TextSpan(text: resolvedDayTitle),
                               if (isToday) ...[
                                 TextSpan(
                                   text: ' · ',
@@ -306,7 +310,7 @@ class _DayRowTile extends StatelessWidget {
                                       ),
                                 ),
                                 TextSpan(
-                                  text: 'Сегодня',
+                                  text: context.l10n.t('today'),
                                   style: Theme.of(context)
                                       .textTheme
                                       .titleSmall
@@ -344,21 +348,8 @@ class _DayRowTile extends StatelessWidget {
   }
 }
 
-/// Короткое название месяца для строки дня (всегда показываем, даже если поездка в одном месяце).
-String _monthShortRu(DateTime d) {
-  const names = <String>[
-    'янв',
-    'фев',
-    'мар',
-    'апр',
-    'май',
-    'июн',
-    'июл',
-    'авг',
-    'сен',
-    'окт',
-    'ноя',
-    'дек',
-  ];
-  return names[d.month - 1];
+/// Короткое название месяца для строки дня.
+String _monthShortLocalized(BuildContext context, DateTime d) {
+  final localeTag = Localizations.localeOf(context).toLanguageTag();
+  return DateFormat('MMM', localeTag).format(d);
 }

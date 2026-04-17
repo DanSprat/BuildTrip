@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:map_launcher/map_launcher.dart';
 
 import '../data/maps_preferences.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme_scope.dart';
 import '../widgets/build_trip_app_bar.dart';
 
@@ -75,6 +76,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       useSafeArea: true,
       builder: (ctx) {
         final current = scope.themeMode;
+        final l10n = ctx.l10n;
         return SafeArea(
           child: ListView(
             shrinkWrap: true,
@@ -82,7 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 4),
               ListTile(
                 leading: const Icon(Icons.light_mode_outlined),
-                title: const Text('Светлая'),
+                title: Text(l10n.t('settingsThemeLight')),
                 trailing: current == ThemeMode.light
                     ? const Icon(Icons.check_rounded)
                     : null,
@@ -90,7 +92,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.dark_mode_outlined),
-                title: const Text('Тёмная'),
+                title: Text(l10n.t('settingsThemeDark')),
                 trailing: current == ThemeMode.dark
                     ? const Icon(Icons.check_rounded)
                     : null,
@@ -98,7 +100,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.brightness_auto_outlined),
-                title: const Text('Система'),
+                title: Text(l10n.t('settingsThemeSystem')),
                 trailing: current == ThemeMode.system
                     ? const Icon(Icons.check_rounded)
                     : null,
@@ -113,6 +115,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (selected != null) {
       scope.setThemeMode(selected);
+    }
+  }
+
+  Future<void> _pickLanguage() async {
+    final scope = AppThemeScope.of(context);
+    final selected = await showModalBottomSheet<AppLanguage>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (ctx) {
+        final current = scope.language;
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const SizedBox(height: 4),
+              for (final option in AppLanguage.values)
+                ListTile(
+                  leading: Text(
+                    _languageFlag(option),
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  title: Text(_languageLabel(ctx, option)),
+                  trailing: current == option
+                      ? const Icon(Icons.check_rounded)
+                      : null,
+                  onTap: () => Navigator.of(ctx).pop(option),
+                ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (selected != null && selected != scope.language) {
+      scope.setLanguage(selected);
     }
   }
 
@@ -137,7 +176,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 4),
                 ListTile(
                   leading: const Icon(Icons.help_outline_rounded),
-                  title: const Text('Всегда спрашивать'),
+                  title: Text(ctx.l10n.t('settingsAlwaysAsk')),
                   trailing: _preferredMapType == null
                       ? const Icon(Icons.check_rounded)
                       : null,
@@ -173,23 +212,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   String _themeLabel(ThemeMode mode) {
+    final l10n = context.l10n;
     return switch (mode) {
-      ThemeMode.light => 'Светлая',
-      ThemeMode.dark => 'Тёмная',
-      ThemeMode.system => 'Система',
+      ThemeMode.light => l10n.t('settingsThemeLight'),
+      ThemeMode.dark => l10n.t('settingsThemeDark'),
+      ThemeMode.system => l10n.t('settingsThemeSystem'),
     };
   }
 
   String _preferredMapLabel() {
     if (_preferredMapType == null) {
-      return 'Всегда спрашивать';
+      return context.l10n.t('settingsAlwaysAsk');
     }
     for (final map in _maps) {
       if (map.mapType == _preferredMapType) {
         return map.mapName;
       }
     }
-    return 'Всегда спрашивать';
+    return context.l10n.t('settingsAlwaysAsk');
+  }
+
+  String _languageLabel(BuildContext context, AppLanguage language) {
+    final l10n = context.l10n;
+    return switch (language) {
+      AppLanguage.system => l10n.t('settingsLanguageSystem'),
+      AppLanguage.ru => 'Русский',
+      AppLanguage.en => 'English',
+      AppLanguage.fr => 'Français',
+      AppLanguage.es => 'Español',
+      AppLanguage.ja => '日本語',
+    };
+  }
+
+  String _languageFlag(AppLanguage language) {
+    return switch (language) {
+      AppLanguage.system => '🌐',
+      AppLanguage.ru => '🇷🇺',
+      AppLanguage.en => '🇬🇧',
+      AppLanguage.fr => '🇫🇷',
+      AppLanguage.es => '🇪🇸',
+      AppLanguage.ja => '🇯🇵',
+    };
   }
 
   AvailableMap? _preferredMap() {
@@ -206,20 +269,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final scope = AppThemeScope.of(context);
     final selectedMap = _preferredMap();
 
     return Scaffold(
-      appBar: const BuildTripAppBar(
-        titleText: 'Настройки',
+      appBar: BuildTripAppBar(
+        titleText: l10n.t('tabSettings'),
         showBackButton: false,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           Text(
-            'Оформление',
+            l10n.t('settingsAppearance'),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -234,23 +298,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             child: ListTile(
               leading: const Icon(Icons.palette_outlined),
-              title: const Text('Тема'),
+              title: Text(l10n.t('settingsTheme')),
               subtitle: Text(_themeLabel(scope.themeMode)),
               trailing: const Icon(Icons.keyboard_arrow_down_rounded),
               onTap: _pickThemeMode,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 24),
           Text(
-            '«Система» следует настройкам устройства.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            l10n.t('settingsLanguage'),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: scheme.onSurfaceVariant,
-                  height: 1.35,
+                  fontWeight: FontWeight.w700,
                 ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+            child: ListTile(
+              leading: Text(
+                _languageFlag(scope.language),
+                style: const TextStyle(fontSize: 20),
+              ),
+              title: Text(l10n.t('settingsLanguage')),
+              subtitle: Text(_languageLabel(context, scope.language)),
+              trailing: const Icon(Icons.keyboard_arrow_down_rounded),
+              onTap: _pickLanguage,
+            ),
           ),
           const SizedBox(height: 24),
           Text(
-            'Карты',
+            l10n.t('settingsMaps'),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -266,21 +348,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             )
           else if (_maps.isEmpty)
             Text(
-              'На устройстве не найдены картографические приложения.',
+              l10n.t('settingsNoMapApps'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.35,
                   ),
             )
           else ...[
-            Text(
-              'Карта по умолчанию для кнопки «Открыть в картах».',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.35,
-                  ),
-            ),
-            const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerLow,
@@ -295,7 +369,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         width: 22,
                         height: 22,
                       ),
-                title: const Text('Карта по умолчанию'),
+                title: Text(l10n.t('settingsMapDefault')),
                 subtitle: Text(_preferredMapLabel()),
                 trailing: const Icon(Icons.keyboard_arrow_down_rounded),
                 onTap: _pickPreferredMap,

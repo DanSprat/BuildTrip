@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../data/maps_preferences.dart';
+import '../l10n/app_localizations.dart';
 
 /// Открывает карты: на Android — системный выбор среди приложений с [geo:],
 /// на iOS — список установленных картографических приложений (через [MapLauncher]).
@@ -36,7 +37,7 @@ Future<void> showOpenInMapsSheet(
   }
 
   if (preferredMap != null) {
-    final loc = await _resolveLocation(trimmed);
+    final loc = await _resolveLocationWithLoading(context, trimmed);
     if (!context.mounted) {
       return;
     }
@@ -68,7 +69,7 @@ Future<void> _launchGoogleMapsSearch(
   );
   if (!ok && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Не удалось открыть карты')),
+      SnackBar(content: Text(context.l10n.t('mapsOpenFailed'))),
     );
   }
 }
@@ -77,6 +78,9 @@ Future<void> _openAndroidMapChooser(
   BuildContext context,
   String encoded,
 ) async {
+  final openInMapsLabel = context.l10n.t('openInMaps');
+  final noAppsText = context.l10n.t('mapsNoApps');
+  final chooserFailedText = context.l10n.t('mapsChooserFailed');
   final intent = AndroidIntent(
     action: 'android.intent.action.VIEW',
     data: 'geo:0,0?q=$encoded',
@@ -86,18 +90,16 @@ Future<void> _openAndroidMapChooser(
     if (can == false) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Нет приложений, которые открывают адрес на карте'),
-          ),
+          SnackBar(content: Text(noAppsText)),
         );
       }
       return;
     }
-    await intent.launchChooser('Открыть в картах');
+    await intent.launchChooser(openInMapsLabel);
   } on PlatformException catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось открыть выбор приложений')),
+        SnackBar(content: Text(chooserFailedText)),
       );
     }
   }
@@ -107,22 +109,21 @@ Future<void> _openInstalledMapsSheet(
     BuildContext context, String trimmed, String encoded,
     {List<AvailableMap>? maps}) async {
   final installedMaps = maps ?? await _getInstalledMaps();
+  if (!context.mounted) {
+    return;
+  }
 
   if (installedMaps.isEmpty) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Нет приложений карт — открываем поиск в браузере',
-          ),
-        ),
+        SnackBar(content: Text(context.l10n.t('mapsNoAppsFallback'))),
       );
       await _launchGoogleMapsSearch(context, encoded);
     }
     return;
   }
 
-  final loc = await _resolveLocation(trimmed);
+  final loc = await _resolveLocationWithLoading(context, trimmed);
 
   if (!context.mounted) {
     return;
@@ -148,14 +149,14 @@ Future<void> _openInstalledMapsSheet(
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
               child: Text(
-                'Открыть в картах',
+                context.l10n.t('openInMaps'),
                 style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: Text(
-                'Установленные приложения',
+                context.l10n.t('mapsInstalledApps'),
                 style: t.bodySmall?.copyWith(
                   color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                 ),
@@ -214,10 +215,13 @@ Future<AvailableMap?> _getPreferredMap(List<AvailableMap> maps) async {
   return null;
 }
 
+/// Таймаут геокодинга: дольше ждать обычно бессмысленно, но UX страдает.
+const Duration _kGeocodeTimeout = Duration(seconds: 5);
+
 Future<Location?> _resolveLocation(String address) async {
   try {
     final locations = await locationFromAddress(address).timeout(
-      const Duration(seconds: 12),
+      _kGeocodeTimeout,
     );
     if (locations.isEmpty) {
       return null;
@@ -227,6 +231,51 @@ Future<Location?> _resolveLocation(String address) async {
     return null;
   } catch (_) {
     return null;
+  }
+}
+
+/// Показывает индикатор сразу, чтобы не казалось, что кнопка «зависла» на секунды.
+Future<Location?> _resolveLocationWithLoading(
+  BuildContext context,
+  String address,
+) async {
+  if (!context.mounted) {
+    return null;
+  }
+  final navigator = Navigator.of(context, rootNavigator: true);
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) {
+      return PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 32,
+                height: 32,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  context.l10n.t('mapsLoadingCoords'),
+                  style: Theme.of(ctx).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+  try {
+    return await _resolveLocation(address);
+  } finally {
+    if (navigator.mounted) {
+      navigator.pop();
+    }
   }
 }
 
@@ -244,7 +293,7 @@ Future<void> _openMapWithMarker(
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось открыть приложение')),
+        SnackBar(content: Text(context.l10n.t('mapsOpenFailed'))),
       );
     }
   }
@@ -267,15 +316,14 @@ Future<void> _showCoordinatesUnavailableSheet(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Открыть в картах',
+              context.l10n.t('mapsNoCoordsTitle'),
               style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Не удалось определить координаты по этому адресу '
-              '(проверьте сеть и написание). Можно открыть поиск в браузере.',
+              context.l10n.t('mapsNoCoordsText'),
               style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -287,7 +335,7 @@ Future<void> _showCoordinatesUnavailableSheet(
                 await _launchGoogleMapsSearch(context, encoded);
               },
               icon: const Icon(Icons.public_rounded),
-              label: const Text('Поиск в Google Картах'),
+              label: Text(context.l10n.t('mapsGoogleSearch')),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
@@ -299,12 +347,12 @@ Future<void> _showCoordinatesUnavailableSheet(
                 );
                 if (!ok && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Не удалось открыть карты')),
+                    SnackBar(content: Text(context.l10n.t('mapsOpenFailed'))),
                   );
                 }
               },
               icon: const Icon(Icons.map_outlined),
-              label: const Text('Поиск в Apple Картах (веб)'),
+              label: Text(context.l10n.t('mapsAppleSearch')),
             ),
           ],
         ),

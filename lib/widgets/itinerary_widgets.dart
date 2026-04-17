@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/trip.dart';
 
 class PlaceKindVisual {
@@ -34,13 +35,12 @@ class PlaceKindVisual {
     };
   }
 
-  /// Подписи для списков и форм (RU).
-  static String labelRu(PlaceKind kind) {
+  static String label(BuildContext context, PlaceKind kind) {
     return switch (kind) {
-      PlaceKind.attraction => 'Достопримечательность',
-      PlaceKind.hotel => 'Отель',
-      PlaceKind.arrivalPoint => 'Пункт прибытия',
-      PlaceKind.food => 'Место для еды',
+      PlaceKind.attraction => context.l10n.t('placeKindAttraction'),
+      PlaceKind.hotel => context.l10n.t('placeKindHotel'),
+      PlaceKind.arrivalPoint => context.l10n.t('placeKindArrivalPoint'),
+      PlaceKind.food => context.l10n.t('placeKindFood'),
     };
   }
 
@@ -84,11 +84,11 @@ class TransportVisual {
     };
   }
 
-  static String label(TransportMode mode) {
+  static String label(BuildContext context, TransportMode mode) {
     return switch (mode) {
-      TransportMode.plane => 'Самолёт',
-      TransportMode.car => 'Авто',
-      TransportMode.train => 'Поезд',
+      TransportMode.plane => context.l10n.t('transportPlane'),
+      TransportMode.car => context.l10n.t('transportCar'),
+      TransportMode.train => context.l10n.t('transportTrain'),
     };
   }
 

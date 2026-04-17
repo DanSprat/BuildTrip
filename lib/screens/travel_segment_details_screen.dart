@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/trip.dart';
 import '../utils/clipboard_utils.dart';
 import '../theme/build_trip_form_theme.dart';
@@ -74,11 +75,11 @@ class _TravelSegmentDetailsScreenState
       },
       child: Scaffold(
         appBar: BuildTripAppBar(
-          titleText: 'Перемещение',
+          titleText: context.l10n.t('travelSegment'),
           onBackPressed: _popWithAutoSave,
           actions: [
             IconButton(
-              tooltip: 'Удалить',
+              tooltip: context.l10n.t('delete'),
               onPressed: () => Navigator.of(context)
                   .pop(TravelSegmentDetailsScreen.deleteMarker),
               style:
@@ -89,21 +90,21 @@ class _TravelSegmentDetailsScreenState
             if (_editing) ...[
               if (_editDirty)
                 IconButton(
-                  tooltip: 'Отменить изменения',
+                  tooltip: context.l10n.t('undoChanges'),
                   onPressed: _undoEdit,
                   style: BuildTripAppBar.toolbarIconStyle(scheme),
                   icon: const Icon(Icons.undo_rounded),
                 ),
               if (_editDirty) const SizedBox(width: 2),
               IconButton(
-                tooltip: 'Готово',
+                tooltip: context.l10n.t('done'),
                 onPressed: _popWithAutoSave,
                 style: BuildTripAppBar.toolbarIconStyle(scheme),
                 icon: const Icon(Icons.check_rounded),
               ),
             ] else
               IconButton(
-                tooltip: 'Редактировать',
+                tooltip: context.l10n.t('edit'),
                 onPressed: _startEditing,
                 style: BuildTripAppBar.toolbarIconStyle(scheme),
                 icon: const Icon(Icons.edit_outlined),
@@ -123,7 +124,7 @@ class _TravelSegmentDetailsScreenState
                       children: [
                         BuildTripSectionCard(
                           icon: Icons.route_rounded,
-                          title: 'Как едем',
+                          title: context.l10n.t('howWeTravel'),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -138,7 +139,7 @@ class _TravelSegmentDetailsScreenState
                                   key: ValueKey(_mode),
                                   width: innerW,
                                   initialSelection: _mode,
-                                  label: const Text('Тип транспорта'),
+                                  label: Text(context.l10n.t('transportType')),
                                   leadingIcon: Icon(
                                     TransportVisual.of(context, _mode).icon,
                                     color:
@@ -160,7 +161,7 @@ class _TravelSegmentDetailsScreenState
                                     for (final m in TransportVisual.pickerOrder)
                                       DropdownMenuEntry<TransportMode>(
                                         value: m,
-                                        label: TransportVisual.label(m),
+                                        label: TransportVisual.label(context, m),
                                         leadingIcon: Icon(
                                           TransportVisual.of(context, m).icon,
                                           size: 22,
@@ -174,9 +175,9 @@ class _TravelSegmentDetailsScreenState
                               const SizedBox(height: 18),
                               TextFormField(
                                 controller: _noteController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Кратко в маршруте',
-                                  hintText: 'Например, RER B ~25 мин',
+                                decoration: InputDecoration(
+                                  labelText: context.l10n.t('shortInRoute'),
+                                  hintText: context.l10n.t('shortInRouteHint'),
                                 ),
                                 textCapitalization: TextCapitalization.sentences,
                               ),
@@ -185,9 +186,9 @@ class _TravelSegmentDetailsScreenState
                                 controller: _descriptionController,
                                 minLines: 1,
                                 maxLines: 8,
-                                decoration: const InputDecoration(
-                                  labelText: 'Подробное описание',
-                                  hintText: 'Необязательно',
+                                decoration: InputDecoration(
+                                  labelText: context.l10n.t('detailedDescription'),
+                                  hintText: context.l10n.t('optional'),
                                   alignLabelWithHint: true,
                                 ),
                                 textCapitalization: TextCapitalization.sentences,
@@ -198,18 +199,17 @@ class _TravelSegmentDetailsScreenState
                         BuildTripSectionCard(
                           marginBottom: 0,
                           icon: Icons.attach_file_rounded,
-                          title: 'Файлы',
+                          title: context.l10n.t('files'),
                           titleTrailing: IconButton(
-                            tooltip: 'Добавить файлы',
+                            tooltip: context.l10n.t('addFiles'),
                             style: BuildTripAppBar.toolbarIconStyle(scheme),
                             onPressed: _pickFiles,
                             icon: const Icon(Icons.upload_file_rounded),
                           ),
                           child: _attachments.isEmpty
-                              ? const BuildTripEmptyHint(
+                              ? BuildTripEmptyHint(
                                   icon: Icons.folder_open_rounded,
-                                  message:
-                                      'Пока нет файлов — нажмите иконку загрузки справа',
+                                  message: context.l10n.t('noFilesAddHint'),
                                 )
                               : Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -369,7 +369,7 @@ class _TravelSegmentDetailsScreenState
                     child: InkWell(
                       onTap: () => copyToClipboard(
                         context,
-                        TransportVisual.label(_mode),
+                        TransportVisual.label(context, _mode),
                       ),
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
@@ -382,7 +382,7 @@ class _TravelSegmentDetailsScreenState
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          TransportVisual.label(_mode),
+                          TransportVisual.label(context, _mode),
                           style: t.labelMedium?.copyWith(
                             color: transport.accent,
                             fontWeight: FontWeight.w700,
@@ -403,7 +403,7 @@ class _TravelSegmentDetailsScreenState
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Text(
                           note.isEmpty
-                              ? 'Краткая строка в маршруте не задана'
+                              ? context.l10n.t('shortRouteNotSet')
                               : note,
                           style: (note.isEmpty ? t.bodyMedium : t.titleMedium)
                               ?.copyWith(
@@ -428,11 +428,11 @@ class _TravelSegmentDetailsScreenState
       const SizedBox(height: 12),
       BuildTripSectionCard(
         icon: Icons.notes_rounded,
-        title: 'Описание',
+        title: context.l10n.t('description'),
         child: desc.isEmpty
-            ? const BuildTripEmptyHint(
+            ? BuildTripEmptyHint(
                 icon: Icons.article_outlined,
-                message: 'Подробного описания пока нет',
+                message: context.l10n.t('detailedDescriptionEmpty'),
               )
             : Text(
                 desc,
@@ -442,11 +442,11 @@ class _TravelSegmentDetailsScreenState
       BuildTripSectionCard(
         marginBottom: 0,
         icon: Icons.attach_file_rounded,
-        title: 'Файлы',
+        title: context.l10n.t('files'),
         child: _attachments.isEmpty
-            ? const BuildTripEmptyHint(
+            ? BuildTripEmptyHint(
                 icon: Icons.folder_open_rounded,
-                message: 'Нет прикреплённых файлов',
+                message: context.l10n.t('noAttachedFiles'),
               )
             : Column(
                 children: _attachments
@@ -484,14 +484,14 @@ class _TravelSegmentDetailsScreenState
           ),
           if (editing) ...[
             IconButton(
-              tooltip: 'Имя',
+              tooltip: context.l10n.t('name'),
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
               padding: EdgeInsets.zero,
               onPressed: () => _renameAttachment(a),
               icon: const Icon(Icons.label_outline, size: 22),
             ),
             IconButton(
-              tooltip: 'Удалить',
+              tooltip: context.l10n.t('delete'),
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
               padding: EdgeInsets.zero,
               onPressed: () {
@@ -527,7 +527,7 @@ class _TravelSegmentDetailsScreenState
     final result = await OpenFile.open(path);
     if (result.type != ResultType.done && mounted) {
       final msg = result.message.trim().isEmpty
-          ? 'Не удалось открыть файл'
+          ? context.l10n.t('failedToOpenFile')
           : result.message;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
@@ -599,21 +599,22 @@ class _TravelSegmentDetailsScreenState
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Название в списке'),
+        title: Text(context.l10n.t('displayNameInList')),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(hintText: 'Как показывать'),
+          decoration: InputDecoration(hintText: context.l10n.t('howToDisplay')),
           autofocus: true,
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(context.l10n.t('cancel'))),
           TextButton(
               onPressed: () => Navigator.pop(ctx, ''),
-              child: const Text('По умолчанию')),
+              child: Text(context.l10n.t('defaultValue'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('OK'),
+            child: Text(context.l10n.t('ok')),
           ),
         ],
       ),
